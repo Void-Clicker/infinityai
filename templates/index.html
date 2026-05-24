@@ -138,13 +138,14 @@
   <script>
     const chatBox = document.getElementById("chat-box");
     const input = document.getElementById("user-input");
+    let userName = "You";   // Default
 
     function addMessage(text, role) {
       const row = document.createElement("div");
       row.className = "msg-row " + role;
       const avatar = document.createElement("div");
       avatar.className = "avatar " + role;
-      avatar.textContent = role === "user" ? "MA" : "AI";
+      avatar.textContent = role === "user" ? userName.substring(0,2).toUpperCase() : "AI";
       const msg = document.createElement("div");
       msg.className = "msg " + role;
       msg.innerHTML = text.replace(/\n/g, "<br>");
@@ -180,6 +181,20 @@
       addMessage(data.reply, "ai");
     }
 
+    async function setName() {
+      const name = prompt("What is your name?");
+      if (!name) return;
+      userName = name;
+      const res = await fetch("/setname", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({name: name})
+      });
+      const data = await res.json();
+      addMessage(data.reply, "ai");
+    }
+
+    // Rest of your functions (clearChat, viewSavedFiles, exportAllFiles, showPortfolio, showStats, uploadFile, toggleTheme, startVoiceInput, etc.)
     function clearChat() {
       chatBox.innerHTML = "";
       fetch("/clear", { method: "POST" });
@@ -219,18 +234,6 @@
 
     async function showStats() {
       const res = await fetch("/stats");
-      const data = await res.json();
-      addMessage(data.reply, "ai");
-    }
-
-    async function setName() {
-      const name = prompt("What is your name?");
-      if (!name) return;
-      const res = await fetch("/setname", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({name: name})
-      });
       const data = await res.json();
       addMessage(data.reply, "ai");
     }
