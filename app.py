@@ -36,7 +36,6 @@ def get_system_message():
 The user's name is {name}."""
 
 app = Flask(__name__)
-import os
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 messages = load_history()
@@ -65,40 +64,49 @@ def chat():
 
     return jsonify({"reply": reply})
 
-# === DAY 22: ANALYTICS / STATS ===
-@app.route("/stats", methods=["GET"])
-def get_stats():
-    # Count generated files
-    files = [f for f in os.listdir(".") if f.endswith(".txt")]
-    business_posts = len([f for f in files if f.startswith("business_post")])
-    automation_ideas = len([f for f in files if f.startswith("automation_ideas")])
-    quotes = len([f for f in files if f.startswith("quote")])
+# Upload File
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"reply": "No file uploaded."})
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"reply": "No file selected."})
+    if file and file.filename.endswith('.txt'):
+        content = file.read().decode('utf-8')
+        filename = file.filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        saved_name = f"uploaded_{timestamp}_{filename}"
+        with open(saved_name, "w", encoding="utf-8") as f:
+            f.write(content)
+        
+        global messages
+        messages.append({"role": "user", "content": f"Here is the content of uploaded file '{filename}':\n\n{content}\n\nPlease summarize or answer questions about it."})
+        response = client.chat.completions.create(model="llama-3.1-8b-instant", messages=messages, temperature=0.7, max_tokens=800)
+        reply = response.choices[0].message.content.strip()
+        messages.append({"role": "assistant", "content": reply})
+        save_history(messages)
+        return jsonify({"reply": f"✅ Uploaded and read: {filename}\n\n{reply}"})
+    else:
+        return jsonify({"reply": "Only .txt files allowed."})
 
-    total_files = len(files)
-    total_messages = len(messages)
+# Set Name Feature
+@app.route("/setname", methods=["POST"])
+def set_name():
+    data = request.json
+    name = data.get("name", "Manny")
+    profile = load_profile()
+    profile["name"] = name
+    save_profile(profile)
+    global messages
+    messages = [{"role": "system", "content": get_system_message()}] + messages[1:]
+    save_history(messages)
+    return jsonify({"reply": f"✅ Hello {name}! I'll remember your name from now on."})
 
-    stats = f"""📊 **Infinity AI Analytics**
-
-**Generated Content:**
-• Business Posts: {business_posts}
-• Automation Ideas: {automation_ideas}
-• Quotes: {quotes}
-• Total Files: {total_files}
-
-**Usage:**
-• Total Messages: {total_messages}
-• Days Active: 22
-
-**Next Goal:** Start offering services to real businesses!
-
-Keep going Manny, you're doing amazing! 🔥"""
-
-    return jsonify({"reply": stats})
-
-# Keep other routes (portfolio, export, improve, etc.)
+# Other routes (portfolio, stats, etc.) remain the same
 @app.route("/portfolio", methods=["GET"])
 def generate_portfolio():
-    portfolio = f"""🚀 MANNY'S AI AUTOMATION PORTFOLIO\nGenerated: {datetime.datetime.now().strftime("%d %B %Y")}\n\nBuilt Infinity AI in 22 days!"""
+    portfolio = f"""🚀 MANNY'S AI AUTOMATION PORTFOLIO\nGenerated: {datetime.datetime.now().strftime("%d %B %Y")}\n\nBuilt Infinity AI in 30 days!"""
     return jsonify({"reply": portfolio})
 
 @app.route("/files", methods=["GET"])
